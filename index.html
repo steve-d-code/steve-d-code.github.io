@@ -3,23 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>root 933</title>
+    <title>XLSX Search Results</title>
+    <link rel="stylesheet" href="drs/css/style.css">
+    <link rel="stylesheet" href="drs/css/style2.css">
+    <!-- Add SheetJS CDN -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    <!-- TODO: These styles might be removed later if they're covered by style.css -->
+    <style>
+        #results li {
+            list-style: none;
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        #results li:hover {
+            background-color: #f9f9f9;
+        }
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            margin: 2px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            text-decoration: none;
+            color: #333;
+        }
+        .tag:hover {
+            background-color: #dee2e6;
+            text-decoration: none;
+        }
+        h2 {
+            margin-top: 30px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+    </style>
 </head>
 <body>
-    <h2>root 938</h2>
+    <h1>Search Results</h1>
+    <ul id="results"></ul>
 
-    <a href="/test/1.html">test 1</a>
-now
+    <script>
+        // Function to load XLSX data
+        function loadXLSX(url, callback) {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(data => {
+                    const workbook = XLSX.read(data, { 
+                        type: 'array',
+                        cellDates: true, // Handle dates properly
+                        dateNF: 'yyyy-mm-dd' // Date format
+                    });
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {
+                        raw: false, // Convert all data to strings
+                        defval: 'N/A' // Default value for empty cells
+                    });
+                    console.log('Loaded XLSX data:', jsonData); // Debug loaded data
+                    callback(jsonData);
+                })
+                .catch(error => {
+                    console.error('Error loading XLSX:', error);
+                    document.getElementById('results').textContent = 'Error loading data.';
+                });
+        }
 
+        // Function to format search term for URL (spaces to hyphens)
+        function formatForUrl(term) {
+            return term.replace(/\s+/g, '-');
+        }
 
+        // Function to format search term for display (hyphens to spaces)
+        function formatForDisplay(term) {
+            return term.replace(/-+/g, ' ');
+        }
 
-        <!-- chatbot 040125 -->
-<script type="module">
-  import Chatbot from "https://cdn.jsdelivr.net/npm/@denserai/embed-chat@1/dist/web.min.js";
-  Chatbot.init({
-    chatbotId: "c064bda6-03b6-4a37-85be-1caec8cfb2c1",
-  });
-</script>  
-    
+        // Function to get search term from URL hash
+        function getSearchTerm() {
+            const hashValue = window.location.hash.slice(1);
+            return formatForDisplay(hashValue);
+        }
+
+        // Function to update the page title
+        function updatePageTitle(searchTerm) {
+            if (searchTerm) {
+                const displayTerm = formatForDisplay(searchTerm)
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                    .join(' ');
+                document.title = `${displayTerm} - Search Results`;
+            } else {
+                document.title = 'Search Results';
+            }
+        }
+
+        // Function to create a clickable tag link
+        function createTagLink(tag) {
+            if (!tag || tag === 'N/A') return '';
+            const formattedTag = formatForUrl(tag.trim());
+            return `<a href="#${formattedTag}" class="tag" onclick="event.preventDefault(); window.location.hash = '${formattedTag}';">${tag}</a>`;
+        }
+
+        // Function to perform the search and update results
+        function updateResults(searchTerm) {
+            updatePageTitle(searchTerm);
+
+            loadXLSX('040625-skills.xlsx', data => {
+                let filteredData;
+                
+                if (!searchTerm) {
+                    filteredData = data;
+                    filteredData.sort((a, b) => Number(a.e_id) - Number(b.e_id));
+                } else {
+                    filteredData = data.filter(item => {
+                        return [item.tag1, item.tag2, item.tag3, item.tag4, item.tag5].some(tag => 
+                            tag && tag !== 'N/A' && tag.toLowerCase().includes(searchTerm.toLowerCase())
+                        );
+                    });
+                }
+
+                const resultsContainer = document.getElementById('results');
+                resultsContainer.innerHTML = '';
+
+                if (filteredData.length > 0) {
+                    if (!searchTerm) {
+                        // Group by Type
+                        const groupedByType = {};
+                        filteredData.forEach(item => {
+                            const type = item.e_type || 'Uncategorized';
+                            if (!groupedByType[type]) {
+                                groupedByType[type] = [];
+                            }
+                            groupedByType[type].push(item);
+                        });
+
+                        Object.keys(groupedByType).sort().forEach(type => {
+                            const typeHeader = document.createElement('h2');
+                            typeHeader.textContent = type;
+                            resultsContainer.appendChild(typeHeader);
+
+                            const typeList = document.createElement('ul');
+                            groupedByType[type].forEach(item => {
+                                const listItem = document.createElement('li');
+                                const tagLinks = [item.tag1, item.tag2, item.tag3, item.tag4, item.tag5]
+                                    .filter(tag => tag && tag !== 'N/A')
+                                    .map(tag => createTagLink(tag))
+                                    .join(' ');
+                                
+                                listItem.innerHTML = `
+                                    <strong>ID:</strong> ${item.e_id}<br>
+                                    <strong>Date:</strong> ${item.e_date}<br>
+                                    <strong>Title:</strong> ${item.e_title}<br>
+                                    <strong>Description:</strong> ${item.e_desc}<br>
+                                    <strong>Priority:</strong> ${item.e_priority}<br>
+                                    <strong>Tags:</strong> ${tagLinks || 'N/A'}<br>
+                                    <strong>End Date:</strong> ${item.e_date_end}<br>
+                                    <strong>Sponsoring:</strong> ${item.e_sponsoring}<br>
+                                    ${item.e_url !== 'N/A' ? `<strong>URL:</strong> <a href="${item.e_url}" target="_blank">${item.e_url}</a>` : ''}
+                                    <hr>
+                                `;
+                                typeList.appendChild(listItem);
+                            });
+                            resultsContainer.appendChild(typeList);
+                        });
+                    } else {
+                        filteredData.forEach(item => {
+                            const listItem = document.createElement('li');
+                            const tagLinks = [item.tag1, item.tag2, item.tag3, item.tag4, item.tag5]
+                                .filter(tag => tag && tag !== 'N/A')
+                                .map(tag => createTagLink(tag))
+                                .join(' ');
+                            
+                            listItem.innerHTML = `
+                                <strong>ID:</strong> ${item.e_id}<br>
+                                <strong>Type:</strong> ${item.e_type}<br>
+                                <strong>Date:</strong> ${item.e_date}<br>
+                                <strong>Title:</strong> ${item.e_title}<br>
+                                <strong>Description:</strong> ${item.e_desc}<br>
+                                <strong>Priority:</strong> ${item.e_priority}<br>
+                                <strong>Tags:</strong> ${tagLinks || 'N/A'}<br>
+                                <strong>End Date:</strong> ${item.e_date_end}<br>
+                                <strong>Sponsoring:</strong> ${item.e_sponsoring}<br>
+                                ${item.e_url !== 'N/A' ? `<strong>URL:</strong> <a href="${item.e_url}" target="_blank">${item.e_url}</a>` : ''}
+                                <hr>
+                            `;
+                            resultsContainer.appendChild(listItem);
+                        });
+                    }
+                } else {
+                    resultsContainer.textContent = 'No results found.';
+                }
+            });
+        }
+
+        // Initial load
+        const initialSearchTerm = getSearchTerm();
+        updateResults(initialSearchTerm);
+
+        // Listen for hash changes
+        window.addEventListener('hashchange', () => {
+            const newSearchTerm = getSearchTerm();
+            updateResults(newSearchTerm);
+        });
+    </script>
 </body>
-</html>
+</html> 
