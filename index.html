@@ -43,9 +43,24 @@
 </head>
 <body>
     <h1>Search Results</h1>
+    <div id="timestamps" style="font-size: 0.9em; color: #666; margin-bottom: 20px;">
+        <div>Page last updated: <span id="pageUpdate"></span></div>
+        <div>Data last updated: <span id="dataUpdate"></span></div>
+    </div>
     <ul id="results"></ul>
 
     <script>
+        // Add this function at the start of your script section
+        function formatDate(date) {
+            return new Date(date).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
         // Function to load XLSX data
         function loadXLSX(url, callback) {
             fetch(url)
@@ -108,7 +123,7 @@
         function createTagLink(tag) {
             if (!tag || tag === 'N/A') return '';
             const formattedTag = formatForUrl(tag.trim());
-            return `<a href="#${formattedTag}" class="tag" onclick="event.preventDefault(); window.location.hash = '${formattedTag}';">${tag}</a>`;
+            return `<a href="#${formattedTag}" class="tag" onclick="event.preventDefault(); window.location.hash = '${formattedTag}'; window.scrollTo(0, 0);">${tag}</a>`;
         }
 
         // Function to perform the search and update results
@@ -120,7 +135,6 @@
                 
                 if (!searchTerm) {
                     filteredData = data;
-                    filteredData.sort((a, b) => Number(a.e_id) - Number(b.e_id));
                 } else {
                     filteredData = data.filter(item => {
                         return [item.tag1, item.tag2, item.tag3, item.tag4, item.tag5].some(tag => 
@@ -129,52 +143,30 @@
                     });
                 }
 
+                // Always sort by ID
+                filteredData.sort((a, b) => Number(a.e_id) - Number(b.e_id));
+
                 const resultsContainer = document.getElementById('results');
                 resultsContainer.innerHTML = '';
 
                 if (filteredData.length > 0) {
-                    if (!searchTerm) {
-                        // Group by Type
-                        const groupedByType = {};
-                        filteredData.forEach(item => {
-                            const type = item.e_type || 'Uncategorized';
-                            if (!groupedByType[type]) {
-                                groupedByType[type] = [];
-                            }
-                            groupedByType[type].push(item);
-                        });
+                    // Always group by Type
+                    const groupedByType = {};
+                    filteredData.forEach(item => {
+                        const type = item.e_type || 'Uncategorized';
+                        if (!groupedByType[type]) {
+                            groupedByType[type] = [];
+                        }
+                        groupedByType[type].push(item);
+                    });
 
-                        Object.keys(groupedByType).sort().forEach(type => {
-                            const typeHeader = document.createElement('h2');
-                            typeHeader.textContent = type;
-                            resultsContainer.appendChild(typeHeader);
+                    Object.keys(groupedByType).sort().forEach(type => {
+                        const typeHeader = document.createElement('h2');
+                        typeHeader.textContent = type;
+                        resultsContainer.appendChild(typeHeader);
 
-                            const typeList = document.createElement('ul');
-                            groupedByType[type].forEach(item => {
-                                const listItem = document.createElement('li');
-                                const tagLinks = [item.tag1, item.tag2, item.tag3, item.tag4, item.tag5]
-                                    .filter(tag => tag && tag !== 'N/A')
-                                    .map(tag => createTagLink(tag))
-                                    .join(' ');
-                                
-                                listItem.innerHTML = `
-                                    <strong>ID:</strong> ${item.e_id}<br>
-                                    <strong>Date:</strong> ${item.e_date}<br>
-                                    <strong>Title:</strong> ${item.e_title}<br>
-                                    <strong>Description:</strong> ${item.e_desc}<br>
-                                    <strong>Priority:</strong> ${item.e_priority}<br>
-                                    <strong>Tags:</strong> ${tagLinks || 'N/A'}<br>
-                                    <strong>End Date:</strong> ${item.e_date_end}<br>
-                                    <strong>Sponsoring:</strong> ${item.e_sponsoring}<br>
-                                    ${item.e_url !== 'N/A' ? `<strong>URL:</strong> <a href="${item.e_url}" target="_blank">${item.e_url}</a>` : ''}
-                                    <hr>
-                                `;
-                                typeList.appendChild(listItem);
-                            });
-                            resultsContainer.appendChild(typeList);
-                        });
-                    } else {
-                        filteredData.forEach(item => {
+                        const typeList = document.createElement('ul');
+                        groupedByType[type].forEach(item => {
                             const listItem = document.createElement('li');
                             const tagLinks = [item.tag1, item.tag2, item.tag3, item.tag4, item.tag5]
                                 .filter(tag => tag && tag !== 'N/A')
@@ -183,7 +175,6 @@
                             
                             listItem.innerHTML = `
                                 <strong>ID:</strong> ${item.e_id}<br>
-                                <strong>Type:</strong> ${item.e_type}<br>
                                 <strong>Date:</strong> ${item.e_date}<br>
                                 <strong>Title:</strong> ${item.e_title}<br>
                                 <strong>Description:</strong> ${item.e_desc}<br>
@@ -194,9 +185,10 @@
                                 ${item.e_url !== 'N/A' ? `<strong>URL:</strong> <a href="${item.e_url}" target="_blank">${item.e_url}</a>` : ''}
                                 <hr>
                             `;
-                            resultsContainer.appendChild(listItem);
+                            typeList.appendChild(listItem);
                         });
-                    }
+                        resultsContainer.appendChild(typeList);
+                    });
                 } else {
                     resultsContainer.textContent = 'No results found.';
                 }
@@ -211,6 +203,17 @@
         window.addEventListener('hashchange', () => {
             const newSearchTerm = getSearchTerm();
             updateResults(newSearchTerm);
+        });
+
+        // Get timestamps for both files
+        Promise.all([
+            fetch('5.html').then(response => response.headers.get('last-modified')),
+            fetch('040625-skills.xlsx').then(response => response.headers.get('last-modified'))
+        ]).then(([pageDate, dataDate]) => {
+            document.getElementById('pageUpdate').textContent = formatDate(pageDate);
+            document.getElementById('dataUpdate').textContent = formatDate(dataDate);
+        }).catch(error => {
+            console.error('Error fetching timestamps:', error);
         });
     </script>
 </body>
