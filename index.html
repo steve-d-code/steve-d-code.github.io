@@ -43,13 +43,42 @@
 </head>
 <body>
     <h1>Search Results</h1>
+    
+    <!-- Add debug controls that only show in development -->
+    <div id="testControls" style="display: none; margin-bottom: 20px;">
+        <button onclick="runTests()">Run All Tests</button>
+        <button onclick="testURLScenarios()">Test URLs</button>
+        <button onclick="testDataDisplay()">Test Display</button>
+    </div>
+
     <div id="timestamps" style="font-size: 0.9em; color: #666; margin-bottom: 20px;">
         <div>Page last updated: <span id="pageUpdate"></span></div>
         <div>Data last updated: <span id="dataUpdate"></span></div>
     </div>
+
     <ul id="results"></ul>
 
     <script>
+        // Add at the start of your script
+        const isDebugMode = window.location.search.includes('debug=true');
+        
+        if (isDebugMode) {
+            document.getElementById('testControls').style.display = 'block';
+            // Load test script dynamically
+            const testScript = document.createElement('script');
+            testScript.src = 'tests.js';
+            document.body.appendChild(testScript);
+        }
+        
+        // Build timestamp
+        const BUILD_TIMESTAMP = new Date().toLocaleString('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
         // Add this function at the start of your script section
         function formatDate(date) {
             return new Date(date).toLocaleDateString('en-US', {
@@ -205,16 +234,28 @@
             updateResults(newSearchTerm);
         });
 
-        // Get timestamps for both files
-        Promise.all([
-            fetch('5.html').then(response => response.headers.get('last-modified')),
-            fetch('040625-skills.xlsx').then(response => response.headers.get('last-modified'))
-        ]).then(([pageDate, dataDate]) => {
-            document.getElementById('pageUpdate').textContent = formatDate(pageDate);
-            document.getElementById('dataUpdate').textContent = formatDate(dataDate);
-        }).catch(error => {
-            console.error('Error fetching timestamps:', error);
-        });
+        // Get timestamp for data file only
+        fetch('040625-skills.xlsx')
+            .then(response => response.headers.get('last-modified'))
+            .then(dataDate => {
+                document.getElementById('pageUpdate').textContent = BUILD_TIMESTAMP;
+                document.getElementById('dataUpdate').textContent = formatDate(dataDate);
+            })
+            .catch(error => {
+                console.error('Error fetching timestamps:', error);
+                document.getElementById('pageUpdate').textContent = BUILD_TIMESTAMP;
+                document.getElementById('dataUpdate').textContent = 'Unknown';
+            });
     </script>
+
+    
+<script type="module">
+    import Chatbot from "https://cdn.jsdelivr.net/npm/@denserai/embed-chat@1/dist/web.min.js";
+    Chatbot.init({
+      chatbotId: "c064bda6-03b6-4a37-85be-1caec8cfb2c1",
+    });
+  </script>  
+  
+  
 </body>
 </html> 
